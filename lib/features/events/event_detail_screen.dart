@@ -78,8 +78,12 @@ class _OverviewTab extends ConsumerWidget {
     final stats = AttendeeStats.fromInvitees(invitees);
     final matchingEvents = (ref.watch(eventsProvider).valueOrNull ?? []).where((e) => e.id == eventId).toList();
     final event = matchingEvents.isEmpty ? null : matchingEvents.first;
-    final peopleById = {for (final p in ref.watch(peopleProvider).valueOrNull ?? []) p.id: p};
+    final List<Person> people =
+    ref.watch(peopleProvider).valueOrNull ?? <Person>[];
 
+final Map<String, Person> peopleById = {
+  for (final p in people) p.id: p,
+};
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
@@ -182,7 +186,12 @@ class _InviteesTabState extends ConsumerState<_InviteesTab> {
   @override
   Widget build(BuildContext context) {
     final invitees = ref.watch(inviteesProvider(widget.eventId)).valueOrNull ?? [];
-    final people = ref.watch(peopleProvider).valueOrNull ?? [];
+    final List<Person> people =
+    ref.watch(peopleProvider).valueOrNull ?? <Person>[];
+
+final Map<String, Person> peopleById = {
+  for (final p in people) p.id: p,
+};
     final peopleById = {for (final p in people) p.id: p};
 
     var filtered = invitees;
