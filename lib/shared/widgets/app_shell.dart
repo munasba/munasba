@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 import 'package:go_router/go_router.dart';
 
 /// Wraps every top-level destination in a shared bottom navigation bar with
@@ -27,8 +28,10 @@ class AppShell extends StatelessWidget {
       body: child,
       floatingActionButton: FloatingActionButton(
         onPressed: () => _showQuickAddSheet(context, location),
-        child: const Icon(Icons.add),
-      ),
+        child: const Icon(Icons.add)
+            .animate(onPlay: (c) => c.repeat(reverse: true))
+            .scaleXY(begin: 1, end: 1.14, duration: 900.ms, curve: Curves.easeInOut),
+      ).animate(onPlay: (c) => c.repeat(reverse: true)).shimmer(duration: 1800.ms, color: Colors.white.withOpacity(0.35)),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
       bottomNavigationBar: BottomAppBar(
         shape: const CircularNotchedRectangle(),
