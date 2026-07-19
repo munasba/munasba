@@ -192,7 +192,6 @@ class _InviteesTabState extends ConsumerState<_InviteesTab> {
 final Map<String, Person> peopleById = {
   for (final p in people) p.id: p,
 };
-    final peopleById = {for (final p in people) p.id: p};
 
     var filtered = invitees;
     switch (_filter) {
