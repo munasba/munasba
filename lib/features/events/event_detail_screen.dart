@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/theme/app_colors.dart';
+import '../../core/utils/formatters.dart';
 import '../../data/models/invitee.dart';
 import '../../data/models/person.dart';
 import '../../data/repositories/invitees_repository.dart';
@@ -31,30 +32,86 @@ class EventDetailScreen extends ConsumerWidget {
       length: 3,
       child: Scaffold(
         appBar: AppBar(
-          title: Text(e.name),
+          leadingWidth: 96,
+          leading: Row(
+            mainAxisAlignment: MainAxisAlignment.start,
+            children: [
+              PopupMenuButton<String>(
+                icon: const Icon(Icons.more_horiz),
+                tooltip: 'خيارات',
+                onSelected: (v) async {
+                  if (v == 'duplicate') {
+                    await ref.read(eventsProvider.notifier).duplicate(e);
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('تم نسخ المناسبة')));
+                    }
+                  } else if (v == 'delete') {
+                    final confirmed = await showDialog<bool>(
+                      context: context,
+                      builder: (ctx) => AlertDialog(
+                        title: const Text('حذف المناسبة'),
+                        content: Text('هل تريد حذف "${e.name}"؟'),
+                        actions: [
+                          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('إلغاء')),
+                          TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('حذف', style: TextStyle(color: Colors.red))),
+                        ],
+                      ),
+                    );
+                    if (confirmed == true) {
+                      await ref.read(eventsProvider.notifier).remove(eventId);
+                      if (context.mounted) context.pop();
+                    }
+                  }
+                },
+                itemBuilder: (context) => const [
+                  PopupMenuItem(value: 'duplicate', child: Text('نسخ المناسبة')),
+                  PopupMenuItem(value: 'delete', child: Text('حذف المناسبة')),
+                ],
+              ),
+              IconButton(
+                icon: const Icon(Icons.edit_outlined),
+                tooltip: 'تعديل',
+                onPressed: () => context.push('/events/$eventId/edit'),
+              ),
+            ],
+          ),
+          centerTitle: true,
+          title: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(e.name, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 18)),
+              const SizedBox(height: 6),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.06),
+                  borderRadius: BorderRadius.circular(100),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(formatDate(e.date), style: TextStyle(fontSize: 11, color: Colors.grey.shade300)),
+                    const SizedBox(width: 4),
+                    Icon(Icons.calendar_today_outlined, size: 12, color: Colors.grey.shade400),
+                  ],
+                ),
+              ),
+            ],
+          ),
           actions: [
-            IconButton(icon: const Icon(Icons.edit), onPressed: () => context.push('/events/$eventId/edit')),
-            PopupMenuButton<String>(
-              onSelected: (v) async {
-                if (v == 'duplicate') {
-                  await ref.read(eventsProvider.notifier).duplicate(e);
-                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('تم نسخ المناسبة')));
-                } else if (v == 'delete') {
-                  await ref.read(eventsProvider.notifier).remove(eventId);
-                  if (context.mounted) context.pop();
-                }
-              },
-              itemBuilder: (context) => const [
-                PopupMenuItem(value: 'duplicate', child: Text('نسخ المناسبة')),
-                PopupMenuItem(value: 'delete', child: Text('حذف المناسبة')),
-              ],
+            IconButton(
+              icon: const Icon(Icons.arrow_forward),
+              tooltip: 'رجوع',
+              onPressed: () => context.pop(),
             ),
           ],
-          bottom: const TabBar(tabs: [
-            Tab(text: 'نظرة عامة'),
-            Tab(text: 'المدعوين'),
-            Tab(text: 'المهام'),
-          ]),
+          bottom: TabBar(
+            tabs: [
+              _tab('نظرة عامة', Icons.bar_chart_rounded),
+              _tab('المدعوين', Icons.people_alt_rounded),
+              _tab('المهام', Icons.checklist_rounded),
+            ],
+          ),
         ),
         body: TabBarView(
           children: [
@@ -66,37 +123,69 @@ class EventDetailScreen extends ConsumerWidget {
       ),
     );
   }
+
+  Widget _tab(String label, IconData icon) => Tab(
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(label),
+            const SizedBox(width: 6),
+            Icon(icon, size: 16),
+          ],
+        ),
+      );
 }
 
-class _OverviewTab extends ConsumerWidget {
+class _OverviewTab extends ConsumerStatefulWidget {
   final String eventId;
   const _OverviewTab({required this.eventId});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final invitees = ref.watch(inviteesProvider(eventId)).valueOrNull ?? [];
-    final stats = AttendeeStats.fromInvitees(invitees);
-    final matchingEvents = (ref.watch(eventsProvider).valueOrNull ?? []).where((e) => e.id == eventId).toList();
-    final event = matchingEvents.isEmpty ? null : matchingEvents.first;
-    final List<Person> people =
-    ref.watch(peopleProvider).valueOrNull ?? <Person>[];
+  ConsumerState<_OverviewTab> createState() => _OverviewTabState();
+}
 
-final Map<String, Person> peopleById = {
-  for (final p in people) p.id: p,
-};
+class _OverviewTabState extends ConsumerState<_OverviewTab> {
+  // 'invited' يحسب المتبقي والنسبة على عدد سجلات المدعوين، و'expected' يحسبها
+  // على إجمالي الحضور المتوقع (شامل المرافقين) — تبديل حقيقي يغيّر الأرقام.
+  String _metric = 'invited';
+
+  @override
+  Widget build(BuildContext context) {
+    final invitees = ref.watch(inviteesProvider(widget.eventId)).valueOrNull ?? [];
+    final stats = AttendeeStats.fromInvitees(invitees);
+    final matchingEvents = (ref.watch(eventsProvider).valueOrNull ?? []).where((e) => e.id == widget.eventId).toList();
+    final event = matchingEvents.isEmpty ? null : matchingEvents.first;
+    final List<Person> people = ref.watch(peopleProvider).valueOrNull ?? <Person>[];
+    final Map<String, Person> peopleById = {for (final p in people) p.id: p};
+
+    final confirmedExpected = invitees.where((i) => i.rsvpStatus == RsvpStatus.invited).fold<int>(0, (sum, i) => sum + i.companions);
+    final int total = _metric == 'invited' ? stats.invited : stats.expected;
+    final int confirmedForMetric = _metric == 'invited' ? stats.confirmed : confirmedExpected;
+    final int remaining = total - confirmedForMetric;
+    final int percent = total == 0 ? 0 : ((confirmedForMetric / total) * 100).round();
+
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
-        GridView.count(
-          crossAxisCount: 2,
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          mainAxisSpacing: 12,
-          crossAxisSpacing: 12,
-          childAspectRatio: 1.3,
+        Row(
           children: [
-            StatCard(value: '${stats.invited}', label: '👤 الأشخاص المدعوون', icon: Icons.people, color: AppColors.primary),
-            StatCard(value: '${stats.expected}', label: '👥 الحضور المتوقع', icon: Icons.groups, color: AppColors.gold),
+            Expanded(
+              child: _metricToggle(
+                label: 'الأشخاص المدعوون',
+                icon: Icons.person_rounded,
+                selected: _metric == 'invited',
+                onTap: () => setState(() => _metric = 'invited'),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: _metricToggle(
+                label: 'الحضور المتوقع',
+                icon: Icons.groups_rounded,
+                selected: _metric == 'expected',
+                onTap: () => setState(() => _metric = 'expected'),
+              ),
+            ),
           ],
         ),
         const SizedBox(height: 12),
@@ -108,9 +197,9 @@ final Map<String, Person> peopleById = {
           crossAxisSpacing: 10,
           childAspectRatio: 0.95,
           children: [
-            StatCard(value: '${stats.confirmed}', label: '✅ مؤكدون', icon: Icons.check_circle, color: AppColors.success),
-            StatCard(value: '${stats.remaining}', label: '⏳ المتبقون', icon: Icons.hourglass_bottom, color: AppColors.warning),
-            StatCard(value: '${stats.percent}%', label: '📈 نسبة الإنجاز', icon: Icons.percent, color: AppColors.secondary),
+            StatCard(value: '$confirmedForMetric', label: '✅ مؤكدون', icon: Icons.check_circle, color: AppColors.success),
+            StatCard(value: '$remaining', label: '⏳ المتبقون', icon: Icons.hourglass_bottom, color: AppColors.warning),
+            StatCard(value: '$percent%', label: '📈 نسبة الإنجاز', icon: Icons.percent, color: AppColors.secondary),
           ],
         ),
         const SizedBox(height: 16),
@@ -135,22 +224,50 @@ final Map<String, Person> peopleById = {
             children: [
               Expanded(
                 child: OutlinedButton.icon(
-                  onPressed: () => ExcelService.exportEventInvitees(event, invitees, peopleById),
-                  icon: const Icon(Icons.table_view_outlined, size: 18),
-                  label: const Text('تصدير Excel'),
+                  onPressed: () => PdfService.printEventReport(event: event, invitees: invitees, peopleById: peopleById),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: AppColors.primary,
+                    side: const BorderSide(color: AppColors.primary),
+                    shape: const StadiumBorder(),
+                  ),
+                  icon: const Icon(Icons.picture_as_pdf_outlined, size: 18),
+                  label: const Text('تصدير PDF'),
                 ),
               ),
               const SizedBox(width: 10),
               Expanded(
                 child: OutlinedButton.icon(
-                  onPressed: () => PdfService.printEventReport(event: event, invitees: invitees, peopleById: peopleById),
-                  icon: const Icon(Icons.picture_as_pdf_outlined, size: 18),
-                  label: const Text('تصدير PDF'),
+                  onPressed: () => ExcelService.exportEventInvitees(event, invitees, peopleById),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: AppColors.success,
+                    side: const BorderSide(color: AppColors.success),
+                    shape: const StadiumBorder(),
+                  ),
+                  icon: const Icon(Icons.table_view_outlined, size: 18),
+                  label: const Text('تصدير Excel'),
                 ),
               ),
             ],
           ),
       ],
+    );
+  }
+
+  Widget _metricToggle({required String label, required IconData icon, required bool selected, required VoidCallback onTap}) {
+    return GestureDetector(
+      onTap: onTap,
+      child: GlassCard(
+        padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 8),
+        color: selected ? AppColors.primary.withOpacity(0.22) : null,
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(label, style: TextStyle(fontSize: 12.5, fontWeight: selected ? FontWeight.bold : FontWeight.normal)),
+            const SizedBox(width: 6),
+            Icon(icon, size: 17, color: selected ? AppColors.primary : Colors.grey.shade400),
+          ],
+        ),
+      ),
     );
   }
 
@@ -183,15 +300,62 @@ class _InviteesTab extends ConsumerStatefulWidget {
 class _InviteesTabState extends ConsumerState<_InviteesTab> {
   String _filter = 'all';
 
+  Future<void> _contact(Uri uri, Invitee inv) async {
+    await launchUrl(uri);
+    if (!mounted) return;
+    await _showCallOutcomeSheet(inv);
+  }
+
+  Future<void> _showCallOutcomeSheet(Invitee inv) async {
+    final status = await showModalBottomSheet<RsvpStatus>(
+      context: context,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const Text('ما نتيجة التواصل؟', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 4),
+              Text('حدّد حالة هذا المدعو بعد الاتصال به', style: TextStyle(fontSize: 12, color: Colors.grey.shade400)),
+              const SizedBox(height: 16),
+              ListTile(
+                leading: const Icon(Icons.check_circle, color: AppColors.success),
+                title: const Text('تم الاتصال به وأكّد الحضور'),
+                onTap: () => Navigator.pop(ctx, RsvpStatus.invited),
+              ),
+              ListTile(
+                leading: const Icon(Icons.cancel, color: AppColors.danger),
+                title: const Text('اعتذر عن الحضور'),
+                onTap: () => Navigator.pop(ctx, RsvpStatus.declined),
+              ),
+              ListTile(
+                leading: const Icon(Icons.hourglass_bottom, color: AppColors.pending),
+                title: const Text('لم يتم الرد بعد'),
+                onTap: () => Navigator.pop(ctx, RsvpStatus.notContacted),
+              ),
+              TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('إلغاء')),
+            ],
+          ),
+        ),
+      ),
+    );
+    if (status != null && mounted) {
+      await ref.read(inviteesProvider(widget.eventId).notifier).updateStatus(inv.id, status);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('تم تحديث الحالة إلى "${status.label}"')));
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final invitees = ref.watch(inviteesProvider(widget.eventId)).valueOrNull ?? [];
-    final List<Person> people =
-    ref.watch(peopleProvider).valueOrNull ?? <Person>[];
+    final List<Person> people = ref.watch(peopleProvider).valueOrNull ?? <Person>[];
 
-final Map<String, Person> peopleById = {
-  for (final p in people) p.id: p,
-};
+    final Map<String, Person> peopleById = {for (final p in people) p.id: p};
 
     var filtered = invitees;
     switch (_filter) {
@@ -201,14 +365,14 @@ final Map<String, Person> peopleById = {
       case 'confirmed':
         filtered = invitees.where((i) => i.rsvpStatus == RsvpStatus.invited).toList();
         break;
-      case 'alone':
-        filtered = invitees.where((i) => i.companions == 1).toList();
+      case 'declined':
+        filtered = invitees.where((i) => i.rsvpStatus == RsvpStatus.declined).toList();
         break;
-      case 'withGuests':
-        filtered = invitees.where((i) => i.companions > 1).toList();
+      case 'notContacted':
+        filtered = invitees.where((i) => i.rsvpStatus == RsvpStatus.notContacted).toList();
         break;
-      case 'large':
-        filtered = invitees.where((i) => i.companions >= 5).toList();
+      case 'pending':
+        filtered = invitees.where((i) => i.rsvpStatus == RsvpStatus.pending).toList();
         break;
     }
 
@@ -224,11 +388,11 @@ final Map<String, Person> peopleById = {
                   child: Row(
                     children: [
                       _chip('all', 'الكل'),
-                      _chip('remaining', 'المتبقون'),
                       _chip('confirmed', 'مؤكدون'),
-                      _chip('alone', 'بمفرده'),
-                      _chip('withGuests', 'مع مرافقين'),
-                      _chip('large', 'مجموعات كبيرة'),
+                      _chip('notContacted', 'لم يتم التواصل'),
+                      _chip('declined', 'معتذرون'),
+                      _chip('pending', 'قيد الانتظار'),
+                      _chip('remaining', 'المتبقون'),
                     ],
                   ),
                 ),
@@ -266,6 +430,9 @@ final Map<String, Person> peopleById = {
                                     children: [
                                       Text(p.fullName, style: const TextStyle(fontWeight: FontWeight.bold)),
                                       if (p.phone != null) Text(p.phone!, style: TextStyle(fontSize: 12, color: Colors.grey.shade400)),
+                                      if (inv.calledAt != null)
+                                        Text('آخر تواصل: ${formatShortDate(inv.calledAt)}',
+                                            style: TextStyle(fontSize: 10.5, color: Colors.grey.shade500)),
                                     ],
                                   ),
                                 ),
@@ -288,7 +455,13 @@ final Map<String, Person> peopleById = {
                                   children: RsvpStatus.values.map((s) {
                                     final active = inv.rsvpStatus == s;
                                     return GestureDetector(
-                                      onTap: () => ref.read(inviteesProvider(widget.eventId).notifier).updateStatus(inv.id, s),
+                                      onTap: () async {
+                                        await ref.read(inviteesProvider(widget.eventId).notifier).updateStatus(inv.id, s);
+                                        if (context.mounted) {
+                                          ScaffoldMessenger.of(context)
+                                              .showSnackBar(SnackBar(content: Text('تم تحديث الحالة إلى "${s.label}"')));
+                                        }
+                                      },
                                       child: Opacity(
                                         opacity: active ? 1 : 0.4,
                                         child: StatusChip(label: s.label, color: AppColors.rsvpColor(s.key)),
@@ -306,11 +479,13 @@ final Map<String, Person> peopleById = {
                                   children: [
                                     IconButton(
                                       icon: const Icon(Icons.chat, color: Colors.green, size: 20),
-                                      onPressed: () => launchUrl(Uri.parse('https://wa.me/${p.phone!.replaceAll('+', '')}')),
+                                      tooltip: 'واتساب',
+                                      onPressed: () => _contact(Uri.parse('https://wa.me/${p.phone!.replaceAll('+', '')}'), inv),
                                     ),
                                     IconButton(
                                       icon: Icon(Icons.call, color: AppColors.primary, size: 20),
-                                      onPressed: () => launchUrl(Uri.parse('tel:${p.phone}')),
+                                      tooltip: 'اتصال',
+                                      onPressed: () => _contact(Uri.parse('tel:${p.phone}'), inv),
                                     ),
                                   ],
                                 ),
