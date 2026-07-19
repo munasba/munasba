@@ -72,6 +72,7 @@ class ReportsScreen extends ConsumerWidget {
                 _row('👤 إجمالي المدعوين', '${stats.invited}'),
                 _row('👥 إجمالي الحضور المتوقع', '${stats.expected}'),
                 _row('✅ مؤكدون', '${stats.confirmed}'),
+                _row('📵 لم يتم التواصل', '${stats.notContacted}'),
                 _row('❌ معتذرون', '${stats.declined}'),
                 _row('⌛ قيد الانتظار', '${stats.pending}'),
               ],
