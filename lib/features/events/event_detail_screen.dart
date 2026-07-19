@@ -5,6 +5,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/theme/app_colors.dart';
 import '../../data/models/invitee.dart';
+import '../../data/models/person.dart';
 import '../../data/repositories/invitees_repository.dart';
 import '../../data/services/excel_service.dart';
 import '../../data/services/pdf_service.dart';
@@ -77,7 +78,7 @@ class _OverviewTab extends ConsumerWidget {
     final stats = AttendeeStats.fromInvitees(invitees);
     final matchingEvents = (ref.watch(eventsProvider).valueOrNull ?? []).where((e) => e.id == eventId).toList();
     final event = matchingEvents.isEmpty ? null : matchingEvents.first;
-    final Map<String, Person> peopleById = {for (final p in (ref.watch(peopleProvider).valueOrNull ?? <Person>[])) p.id: p};
+    final peopleById = {for (final p in ref.watch(peopleProvider).valueOrNull ?? []) p.id: p};
 
     return ListView(
       padding: const EdgeInsets.all(16),
