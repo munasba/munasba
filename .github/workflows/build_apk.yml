@@ -41,11 +41,12 @@ jobs:
           channel: 'stable'
           cache: true
 
-      # Safe to run even though android/ already exists in this repo: it only
-      # fills in files that are missing and never overwrites lib/, pubspec.yaml,
-      # or files that already exist (like our hand-tuned settings.gradle.kts).
-      - name: Ensure native platform scaffolding is complete
-        run: flutter create --platforms=android .
+      # Clears any stale build artifacts/caches from a previous run and
+      # re-fetches Dart packages, so the build starts from a known-clean state.
+      - name: Clean project
+        run: |
+          flutter clean
+          flutter pub get
 
       # Installs a real, official Gradle binary on the runner (this step has
       # full internet access, unlike some restricted/offline dev environments)
