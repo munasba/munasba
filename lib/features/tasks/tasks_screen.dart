@@ -215,7 +215,7 @@ class _TaskRow extends ConsumerWidget {
               value: task.status == TaskStatus.completed,
               onChanged: (v) => ref
                   .read(tasksProvider.notifier)
-                  .update(task.copyWith(status: v == true ? TaskStatus.completed : TaskStatus.inProgress)),
+                  .updateTask(task.copyWith(status: v == true ? TaskStatus.completed : TaskStatus.inProgress)),
             ),
           ],
         ),
