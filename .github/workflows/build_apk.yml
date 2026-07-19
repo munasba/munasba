@@ -21,7 +21,7 @@ on:
   workflow_dispatch: {}
 
 env:
-  GRADLE_VERSION: "8.10.2"
+  GRADLE_VERSION: "8.14.2"
 
 jobs:
   build:
