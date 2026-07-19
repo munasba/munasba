@@ -25,19 +25,23 @@ subprojects {
 // resource linking is consistent across the whole build.
 //
 // NOTE: this must NOT touch the ":app" project — the block above already
-// forces ":app" to evaluate early via evaluationDependsOn(":app"), so by the
-// time any code here would run, ":app" is already evaluated and calling
-// afterEvaluate (or anything that implies it) on it throws:
+// forces ":app" to evaluate early via evaluationDependsOn(":app"), so calling
+// afterEvaluate on ":app" here throws:
 //   "Cannot run Project.afterEvaluate(Action) when the project is already evaluated."
-// Using plugins.withId (instead of afterEvaluate) sidesteps that entirely,
-// since it fires immediately for already-applied plugins with no evaluation
-// ordering requirement, and we only target library modules (plugins), never
-// the application module (which already sets compileSdk = 36 itself).
+//
+// We use afterEvaluate (not plugins.withId) because plugins.withId fires as
+// soon as `apply plugin: 'com.android.library'` runs — which is near the top
+// of each plugin's own build.gradle — so a plugin's own later
+// `android { compileSdkVersion 30 }` line would silently overwrite our value
+// right back down. afterEvaluate runs after the whole module script
+// (including that line) has finished, so our override wins.
 subprojects {
     if (project.name != "app") {
-        plugins.withId("com.android.library") {
-            project.extensions.configure<com.android.build.gradle.LibraryExtension> {
-                compileSdk = 36
+        afterEvaluate {
+            if (plugins.hasPlugin("com.android.library")) {
+                extensions.configure<com.android.build.gradle.LibraryExtension> {
+                    compileSdk = 36
+                }
             }
         }
     }
