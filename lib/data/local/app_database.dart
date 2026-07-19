@@ -21,7 +21,7 @@ class AppDatabase {
     final path = join(dbPath, 'dawakti.db');
     return openDatabase(
       path,
-      version: 1,
+      version: 2,
       onCreate: (db, version) async {
         await db.execute('''
           CREATE TABLE categories(
@@ -48,6 +48,7 @@ class AppDatabase {
             isFavorite INTEGER NOT NULL DEFAULT 0,
             lastCallStatus TEXT,
             lastCallDate TEXT,
+            birthday TEXT,
             createdAt TEXT NOT NULL,
             FOREIGN KEY(categoryId) REFERENCES categories(id) ON DELETE SET NULL
           );
@@ -113,6 +114,13 @@ class AppDatabase {
 
         await db.insert('app_settings', {'id': 'app'});
         await _seedDefaultCategories(db);
+      },
+      onUpgrade: (db, oldVersion, newVersion) async {
+        if (oldVersion < 2) {
+          // مستخدمو النسخة الأولى ما عندهم عمود تاريخ الميلاد بعد — نضيفه هنا
+          // بدل ما نفقد بياناتهم بإعادة إنشاء الجدول.
+          await db.execute('ALTER TABLE people ADD COLUMN birthday TEXT');
+        }
       },
       onConfigure: (db) async {
         await db.execute('PRAGMA foreign_keys = ON');
