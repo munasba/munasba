@@ -12,6 +12,7 @@ class Person {
   final bool isFavorite;
   final String? lastCallStatus; // 'called' | 'notcalled' | null
   final DateTime? lastCallDate;
+  final DateTime? birthday;
   final DateTime createdAt;
 
   const Person({
@@ -28,6 +29,7 @@ class Person {
     this.isFavorite = false,
     this.lastCallStatus,
     this.lastCallDate,
+    this.birthday,
     required this.createdAt,
   });
 
@@ -44,6 +46,7 @@ class Person {
     bool? isFavorite,
     String? lastCallStatus,
     DateTime? lastCallDate,
+    DateTime? birthday,
   }) =>
       Person(
         id: id,
@@ -59,6 +62,7 @@ class Person {
         isFavorite: isFavorite ?? this.isFavorite,
         lastCallStatus: lastCallStatus ?? this.lastCallStatus,
         lastCallDate: lastCallDate ?? this.lastCallDate,
+        birthday: birthday ?? this.birthday,
         createdAt: createdAt,
       );
 
@@ -76,6 +80,7 @@ class Person {
         'isFavorite': isFavorite ? 1 : 0,
         'lastCallStatus': lastCallStatus,
         'lastCallDate': lastCallDate?.toIso8601String(),
+        'birthday': birthday?.toIso8601String(),
         'createdAt': createdAt.toIso8601String(),
       };
 
@@ -93,6 +98,7 @@ class Person {
         isFavorite: (map['isFavorite'] as int?) == 1,
         lastCallStatus: map['lastCallStatus'] as String?,
         lastCallDate: map['lastCallDate'] != null ? DateTime.parse(map['lastCallDate'] as String) : null,
+        birthday: map['birthday'] != null ? DateTime.parse(map['birthday'] as String) : null,
         createdAt: DateTime.parse(map['createdAt'] as String),
       );
 }
