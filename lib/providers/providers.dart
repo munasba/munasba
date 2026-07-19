@@ -64,23 +64,41 @@ class PeopleNotifier extends AsyncNotifier<List<Person>> {
 
   Future<void> refresh() async => state = await AsyncValue.guard(() => ref.read(peopleRepoProvider).getAll());
 
-  Future<void> add(Person draft) async {
-    await ref.read(peopleRepoProvider).create(draft);
+  Future<Person> add(Person draft) async {
+    final created = await ref.read(peopleRepoProvider).create(draft);
+    if (created.birthday != null) {
+      await NotificationsService.scheduleBirthdayReminder(created);
+    }
     await refresh();
+    return created;
   }
 
   Future<void> updatePerson(Person person) async {
     await ref.read(peopleRepoProvider).update(person);
+    if (person.birthday != null) {
+      await NotificationsService.scheduleBirthdayReminder(person);
+    } else {
+      await NotificationsService.cancelBirthdayReminder(person.id);
+    }
     await refresh();
   }
 
   Future<void> remove(String id) async {
     await ref.read(peopleRepoProvider).delete(id);
+    await NotificationsService.cancelBirthdayReminder(id);
     await refresh();
   }
 
   Future<void> toggleFavorite(String id, bool value) async {
     await ref.read(peopleRepoProvider).toggleFavorite(id, value);
+    await refresh();
+  }
+
+  /// Merges a detected duplicate into the kept record and refreshes the list.
+  /// See [PeopleRepository.mergeInto] for exactly what moves over.
+  Future<void> mergeInto({required String keepId, required String removeId}) async {
+    await ref.read(peopleRepoProvider).mergeInto(keepId: keepId, removeId: removeId);
+    await NotificationsService.cancelBirthdayReminder(removeId);
     await refresh();
   }
 }
