@@ -272,6 +272,13 @@ class AuthNotifier extends AsyncNotifier<bool> {
 
 final authProvider = AsyncNotifierProvider<AuthNotifier, bool>(AuthNotifier.new);
 
+/// The user's saved display name (captured on the welcome/onboarding flow),
+/// used to greet them by name on the home screen.
+final displayNameProvider = FutureProvider<String?>((ref) {
+  ref.watch(authProvider); // refresh after sign-in
+  return ref.read(authRepoProvider).displayName();
+});
+
 // ---------------------------------------------------------------------------
 // UI-only ephemeral state
 // ---------------------------------------------------------------------------
