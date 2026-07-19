@@ -1,5 +1,6 @@
 import 'package:path/path.dart';
 import 'package:sqflite/sqflite.dart';
+import 'package:uuid/uuid.dart';
 
 /// Thin wrapper around a single sqflite [Database] instance.
 /// Deliberately hand-written (no drift/build_runner) so the project builds
@@ -111,10 +112,39 @@ class AppDatabase {
         ''');
 
         await db.insert('app_settings', {'id': 'app'});
+        await _seedDefaultCategories(db);
       },
       onConfigure: (db) async {
         await db.execute('PRAGMA foreign_keys = ON');
       },
     );
+  }
+
+  /// Seeds a starter set of family/social categories (أعمام، أخوال، جيران…)
+  /// so the "الفئة" picker on the add-person screen is populated from first
+  /// launch instead of starting empty. Users can still rename, recolor,
+  /// delete, or add their own from the الفئات screen.
+  Future<void> _seedDefaultCategories(Database db) async {
+    const uuid = Uuid();
+    final now = DateTime.now().toIso8601String();
+    const defaults = <String>[
+      'الأعمام',
+      'الأخوال',
+      'الأصدقاء',
+      'الجيران',
+      'أهل الزوجة',
+      'أهل الزوج',
+      'زملاء العمل',
+      'الأقارب',
+    ];
+    for (var i = 0; i < defaults.length; i++) {
+      await db.insert('categories', {
+        'id': uuid.v4(),
+        'name': defaults[i],
+        'icon': 'folder',
+        'colorIndex': i % 8,
+        'createdAt': now,
+      });
+    }
   }
 }
