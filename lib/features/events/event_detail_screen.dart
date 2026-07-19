@@ -77,7 +77,7 @@ class _OverviewTab extends ConsumerWidget {
     final stats = AttendeeStats.fromInvitees(invitees);
     final matchingEvents = (ref.watch(eventsProvider).valueOrNull ?? []).where((e) => e.id == eventId).toList();
     final event = matchingEvents.isEmpty ? null : matchingEvents.first;
-    final peopleById = {for (final p in ref.watch(peopleProvider).valueOrNull ?? []) p.id: p};
+    final Map<String, Person> peopleById = {for (final p in (ref.watch(peopleProvider).valueOrNull ?? <Person>[])) p.id: p};
 
     return ListView(
       padding: const EdgeInsets.all(16),
