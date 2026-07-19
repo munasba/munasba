@@ -1,8 +1,11 @@
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../core/theme/app_colors.dart';
+import '../../data/services/excel_service.dart';
 import '../../providers/providers.dart';
 import '../../shared/widgets/empty_state.dart';
 import '../../shared/widgets/filter_chip_row.dart';
@@ -22,7 +25,50 @@ class PeopleListScreen extends ConsumerWidget {
     final categoryFilter = ref.watch(peopleFilterCategoryProvider);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('الأشخاص')),
+      appBar: AppBar(
+        leading: PopupMenuButton<String>(
+          icon: const Icon(Icons.more_horiz),
+          tooltip: 'خيارات',
+          onSelected: (v) async {
+            final allPeople = peopleAsync.valueOrNull ?? [];
+            if (v == 'export') {
+              await ExcelService.exportPeople(allPeople, categoriesById);
+            } else if (v == 'import') {
+              await _importFromExcel(context, ref);
+            } else if (v == 'categories') {
+              context.push('/categories');
+            }
+          },
+          itemBuilder: (context) => const [
+            PopupMenuItem(value: 'export', child: Text('تصدير إلى Excel')),
+            PopupMenuItem(value: 'import', child: Text('استيراد من Excel')),
+            PopupMenuItem(value: 'categories', child: Text('إدارة الفئات')),
+          ],
+        ),
+        centerTitle: true,
+        title: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: const [
+                Text('الأشخاص', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18)),
+                SizedBox(width: 6),
+                Icon(Icons.people_alt_rounded, size: 20),
+              ],
+            ),
+            Text('إدارة جميع الأشخاص بسهولة',
+                style: TextStyle(fontSize: 11.5, color: Colors.grey.shade400, fontWeight: FontWeight.normal)),
+          ],
+        ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.notifications_outlined),
+            tooltip: 'التذكيرات',
+            onPressed: () => context.push('/tasks'),
+          ),
+        ],
+      ),
       body: peopleAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, st) => Center(child: Text('حدث خطأ: $e')),
@@ -40,7 +86,7 @@ class PeopleListScreen extends ConsumerWidget {
 
           final calledCount = allPeople.where((p) => p.lastCallStatus == 'called').length;
           final favoriteCount = allPeople.where((p) => p.isFavorite).length;
-          final familiesCount = allPeople.map((p) => p.categoryId).whereType<String>().toSet().length;
+          final familiesCount = allPeople.where((p) => p.familyMembersCount > 1).length;
 
           return ListView(
             padding: const EdgeInsets.all(16),
@@ -56,6 +102,11 @@ class PeopleListScreen extends ConsumerWidget {
               const SizedBox(height: 12),
               Row(
                 children: [
+                  IconButton(
+                    icon: const Icon(Icons.tune),
+                    tooltip: 'فلتر متقدم',
+                    onPressed: () => _showAdvancedFilterSheet(context, ref),
+                  ),
                   Expanded(
                     child: FilterChipRow(
                       options: const [
@@ -67,11 +118,6 @@ class PeopleListScreen extends ConsumerWidget {
                       onSelected: (v) => ref.read(peopleFilterProvider.notifier).state = v,
                     ),
                   ),
-                  IconButton(
-                    icon: const Icon(Icons.tune),
-                    tooltip: 'فلتر متقدم',
-                    onPressed: () => _showAdvancedFilterSheet(context, ref),
-                  ),
                 ],
               ),
               if (filter == 'category') ...[
@@ -79,16 +125,19 @@ class PeopleListScreen extends ConsumerWidget {
                 SingleChildScrollView(
                   scrollDirection: Axis.horizontal,
                   child: Row(
-                    children: categories
-                        .map((c) => Padding(
-                              padding: const EdgeInsets.only(left: 8),
-                              child: ChoiceChip(
-                                label: Text(c.name),
-                                selected: categoryFilter == c.id,
-                                onSelected: (_) => ref.read(peopleFilterCategoryProvider.notifier).state = c.id,
-                              ),
-                            ))
-                        .toList(),
+                    children: categories.map((c) {
+                      final color = AppColors.categoryGradients[c.colorIndex % AppColors.categoryGradients.length][0];
+                      final selected = categoryFilter == c.id;
+                      return Padding(
+                        padding: const EdgeInsets.only(left: 8),
+                        child: ChoiceChip(
+                          label: Text(c.name),
+                          selected: selected,
+                          selectedColor: color.withOpacity(0.35),
+                          onSelected: (_) => ref.read(peopleFilterCategoryProvider.notifier).state = c.id,
+                        ),
+                      );
+                    }).toList(),
                   ),
                 ),
               ],
@@ -97,10 +146,10 @@ class PeopleListScreen extends ConsumerWidget {
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceAround,
                   children: [
-                    _miniStat('$calledCount', 'تم الاتصال'),
-                    _miniStat('$favoriteCount', 'المفضلة'),
-                    _miniStat('$familiesCount', 'الأقسام المستخدَمة'),
-                    _miniStat('${allPeople.length}', 'إجمالي الأشخاص'),
+                    _miniStat('$calledCount', 'تم الاتصال', Icons.call, AppColors.success),
+                    _miniStat('$favoriteCount', 'المفضلة', Icons.star_rounded, Colors.amber),
+                    _miniStat('$familiesCount', 'العائلات', Icons.groups_rounded, AppColors.secondary),
+                    _miniStat('${allPeople.length}', 'إجمالي الأشخاص', Icons.people_alt_rounded, AppColors.primary),
                   ],
                 ),
               ),
@@ -162,6 +211,25 @@ class PeopleListScreen extends ConsumerWidget {
     );
   }
 
+  Future<void> _importFromExcel(BuildContext context, WidgetRef ref) async {
+    final result = await FilePicker.platform.pickFiles(type: FileType.custom, allowedExtensions: ['xlsx']);
+    final path = result?.files.single.path;
+    if (path == null) return;
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('جارٍ الاستيراد...')));
+    try {
+      final count = await ExcelService.importPeopleFromFile(path, ref.read(peopleRepoProvider));
+      await ref.read(peopleProvider.notifier).refresh();
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('تم استيراد $count شخص بنجاح')));
+      }
+    } catch (err) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('تعذّر الاستيراد: $err')));
+      }
+    }
+  }
+
   void _showAdvancedFilterSheet(BuildContext context, WidgetRef ref) {
     showModalBottomSheet(
       context: context,
@@ -207,10 +275,18 @@ class PeopleListScreen extends ConsumerWidget {
     );
   }
 
-  Widget _miniStat(String value, String label) => Column(
+  Widget _miniStat(String value, String label, IconData icon, Color color) => Column(
         children: [
-          Text(value, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16)),
           Text(label, style: TextStyle(fontSize: 10.5, color: Colors.grey.shade400)),
+          const SizedBox(height: 4),
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(value, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16)),
+              const SizedBox(width: 4),
+              Icon(icon, size: 15, color: color),
+            ],
+          ),
         ],
       );
 }
