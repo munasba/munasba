@@ -24,7 +24,7 @@ android {
         // publishing to the Play Store — "com.dawakti.app" is a placeholder.
         applicationId = "com.dawakti.app"
         minSdk = 23 // local_auth / flutter_secure_storage need >= 23
-        targetSdk = flutter.targetSdkVersion
+        targetSdk = 36
         versionCode = flutter.versionCode
         versionName = flutter.versionName
     }
