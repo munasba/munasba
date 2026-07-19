@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import '../../core/theme/app_colors.dart';
 import '../../data/models/category.dart';
 import '../../data/models/person.dart';
 import 'glass_card.dart';
@@ -52,17 +53,45 @@ class PersonRow extends StatelessWidget {
                   Text(person.phone!, style: TextStyle(fontSize: 12, color: Colors.grey.shade400)),
                 Wrap(
                   spacing: 6,
+                  runSpacing: 4,
+                  crossAxisAlignment: WrapCrossAlignment.center,
                   children: [
-                    Text('العائلة: ${person.familyMembersCount} أفراد',
-                        style: TextStyle(fontSize: 11, color: Colors.grey.shade500)),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.06),
+                        borderRadius: BorderRadius.circular(100),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.people_alt_rounded, size: 11, color: Colors.grey.shade400),
+                          const SizedBox(width: 3),
+                          Text('العائلة: ${person.familyMembersCount} أفراد',
+                              style: TextStyle(fontSize: 10.5, color: Colors.grey.shade400)),
+                        ],
+                      ),
+                    ),
                     if (category != null)
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                         decoration: BoxDecoration(
-                          color: Theme.of(context).colorScheme.primary.withOpacity(0.18),
+                          color: AppColors
+                              .categoryGradients[category!.colorIndex % AppColors.categoryGradients.length][0]
+                              .withOpacity(0.28),
                           borderRadius: BorderRadius.circular(100),
                         ),
-                        child: Text(category!.name, style: const TextStyle(fontSize: 10.5)),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.folder_rounded,
+                                size: 11,
+                                color: AppColors
+                                    .categoryGradients[category!.colorIndex % AppColors.categoryGradients.length][0]),
+                            const SizedBox(width: 3),
+                            Text(category!.name, style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.w600)),
+                          ],
+                        ),
                       ),
                   ],
                 ),
