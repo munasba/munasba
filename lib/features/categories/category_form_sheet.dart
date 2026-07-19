@@ -58,7 +58,7 @@ Future<void> showCategoryFormSheet(BuildContext context, WidgetRef ref, {Categor
                   if (category == null) {
                     await ref.read(categoriesProvider.notifier).add(name: name, icon: 'folder', colorIndex: colorIndex);
                   } else {
-                    await ref.read(categoriesProvider.notifier).update(category.copyWith(name: name, colorIndex: colorIndex));
+                    await ref.read(categoriesProvider.notifier).updateCategory(category.copyWith(name: name, colorIndex: colorIndex));
                   }
                   ref.invalidate(categoryPeopleCountProvider);
                   if (ctx.mounted) Navigator.pop(ctx);

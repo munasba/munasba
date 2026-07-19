@@ -105,7 +105,7 @@ class _EventFormScreenState extends ConsumerState<EventFormScreen> {
     );
 
     if (isEdit && _editing != null) {
-      await ref.read(eventsProvider.notifier).update(draft);
+      await ref.read(eventsProvider.notifier).updateEvent(draft);
       if (mounted) context.pop();
     } else {
       final created = await ref.read(eventsProvider.notifier).add(draft);

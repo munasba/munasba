@@ -87,7 +87,7 @@ class _PersonFormScreenState extends ConsumerState<PersonFormScreen> {
     );
 
     if (isEdit && _editing != null) {
-      await ref.read(peopleProvider.notifier).update(draft);
+      await ref.read(peopleProvider.notifier).updatePerson(draft);
     } else {
       await ref.read(peopleProvider.notifier).add(draft);
     }

@@ -97,7 +97,7 @@ Future<void> showTaskFormSheet(BuildContext context, WidgetRef ref, {TaskItem? t
                           createdAt: DateTime.now(),
                         ));
                   } else {
-                    await ref.read(tasksProvider.notifier).update(
+                    await ref.read(tasksProvider.notifier).updateTask(
                           task.copyWith(title: title, dueDate: dueDate, status: status, priority: priority, imagePath: imagePath),
                         );
                   }

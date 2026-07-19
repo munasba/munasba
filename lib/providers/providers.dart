@@ -40,7 +40,7 @@ class CategoriesNotifier extends AsyncNotifier<List<Category>> {
     await refresh();
   }
 
-  Future<void> update(Category category) async {
+  Future<void> updateCategory(Category category) async {
     await ref.read(categoriesRepoProvider).update(category);
     await refresh();
   }
@@ -69,7 +69,7 @@ class PeopleNotifier extends AsyncNotifier<List<Person>> {
     await refresh();
   }
 
-  Future<void> update(Person person) async {
+  Future<void> updatePerson(Person person) async {
     await ref.read(peopleRepoProvider).update(person);
     await refresh();
   }
@@ -103,7 +103,7 @@ class EventsNotifier extends AsyncNotifier<List<EventItem>> {
     return created;
   }
 
-  Future<void> update(EventItem event) async {
+  Future<void> updateEvent(EventItem event) async {
     await ref.read(eventsRepoProvider).update(event);
     await NotificationsService.scheduleEventReminders(event);
     await refresh();
@@ -189,7 +189,7 @@ class TasksNotifier extends AsyncNotifier<List<TaskItem>> {
     await refresh();
   }
 
-  Future<void> update(TaskItem task) async {
+  Future<void> updateTask(TaskItem task) async {
     await ref.read(tasksRepoProvider).update(task);
     await refresh();
   }
