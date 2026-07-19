@@ -26,7 +26,7 @@ class AppShell extends StatelessWidget {
     return Scaffold(
       body: child,
       floatingActionButton: FloatingActionButton(
-        onPressed: () => _showQuickAddSheet(context),
+        onPressed: () => _showQuickAddSheet(context, location),
         child: const Icon(Icons.add),
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
@@ -45,6 +45,17 @@ class AppShell extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  /// If the user is currently viewing a single event (e.g. /events/abc123,
+  /// not the list at /events or /events/new), returns that event's id so the
+  /// quick-add sheet can offer to add an invitee directly to it.
+  String? _eventIdForLocation(String location) {
+    final segments = Uri.parse(location).pathSegments;
+    if (segments.length >= 2 && segments[0] == 'events' && segments[1] != 'new') {
+      return segments[1];
+    }
+    return null;
   }
 
   Widget _navItem(BuildContext context,
@@ -66,7 +77,8 @@ class AppShell extends StatelessWidget {
     );
   }
 
-  void _showQuickAddSheet(BuildContext context) {
+  void _showQuickAddSheet(BuildContext context, String location) {
+    final currentEventId = _eventIdForLocation(location);
     showModalBottomSheet(
       context: context,
       backgroundColor: Theme.of(context).cardTheme.color,
@@ -74,6 +86,15 @@ class AppShell extends StatelessWidget {
       builder: (ctx) => SafeArea(
         child: Wrap(
           children: [
+            if (currentEventId != null)
+              ListTile(
+                leading: const Icon(Icons.person_add_alt),
+                title: const Text('إضافة مدعو لهذه المناسبة'),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  context.push('/events/$currentEventId/invitees');
+                },
+              ),
             ListTile(
               leading: const Icon(Icons.person_add),
               title: const Text('إضافة شخص'),
