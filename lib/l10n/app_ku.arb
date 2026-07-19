@@ -1,0 +1,53 @@
+{
+  "@@locale": "ku",
+  "appTitle": "بانگهێشتەکانم",
+  "navHome": "سەرەکی",
+  "navPeople": "کەسەکان",
+  "navEvents": "بۆنەکان",
+  "navSettings": "ڕێکخستنەکان",
+
+  "home": "سەرەکی",
+  "peopleTitle": "کەسەکان",
+  "categoriesTitle": "پۆلەکان",
+  "eventsTitle": "بۆنەکان",
+  "tasksTitle": "لیستی ئەرکەکان",
+  "reportsTitle": "ڕاپۆرتەکان",
+  "settingsTitle": "ڕێکخستنەکان",
+
+  "addPerson": "زیادکردنی کەس",
+  "addEvent": "زیادکردنی بۆنە",
+  "addCategory": "زیادکردنی پۆلی نوێ",
+  "addTask": "زیادکردنی ئەرک",
+
+  "fullName": "ناوی تەواو",
+  "shortName": "ناوی کورت (ئارەزوومەندانە)",
+  "phone": "ژمارەی تەلەفۆن",
+  "whatsapp": "واتساپ",
+  "category": "پۆل",
+  "familyMembersCount": "ژمارەی ئەندامانی خێزان",
+  "address": "ناونیشان",
+  "notes": "تێبینی (ئارەزوومەندانە)",
+  "save": "پاشەکەوتکردن",
+
+  "eventName": "ناوی بۆنە",
+  "eventType": "جۆری بۆنە",
+  "eventDate": "ڕێکەوت",
+  "eventTime": "کات",
+  "eventLocation": "شوێن",
+  "eventColor": "ڕەنگی بۆنە",
+  "coverImage": "وێنەی بەرگ",
+
+  "selectInvitees": "هەڵبژاردنی بانگهێشتکراوان",
+  "confirmSelection": "دووپاتکردنەوەی هەڵبژاردن",
+  "expectedAttendance": "ژمارەی چاوەڕوانکراوی ئامادەبوون",
+
+  "darkMode": "دۆخی شەو",
+  "language": "زمان",
+  "accentColor": "ڕەنگی سەرەکی",
+  "importExcel": "هاوردەکردن لە Excel",
+  "exportExcel": "هەناردەکردن بۆ Excel",
+  "exportPdf": "هەناردەکردن بۆ PDF",
+  "security": "ئاسایش",
+  "about": "دەربارەی ئەپ",
+  "logout": "چوونەدەرەوە"
+}

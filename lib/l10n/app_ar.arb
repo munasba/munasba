@@ -1,0 +1,55 @@
+{
+  "@@locale": "ar",
+  "appTitle": "دعواتي",
+  "@appTitle": {"description": "اسم التطبيق"},
+
+  "navHome": "الرئيسية",
+  "navPeople": "الأشخاص",
+  "navEvents": "المناسبات",
+  "navSettings": "الإعدادات",
+
+  "home": "الرئيسية",
+  "peopleTitle": "الأشخاص",
+  "categoriesTitle": "الفئات",
+  "eventsTitle": "المناسبات",
+  "tasksTitle": "قائمة المهام",
+  "reportsTitle": "التقارير",
+  "settingsTitle": "الإعدادات",
+
+  "addPerson": "إضافة شخص",
+  "addEvent": "إضافة مناسبة",
+  "addCategory": "إضافة فئة جديدة",
+  "addTask": "إضافة مهمة",
+
+  "fullName": "الاسم الكامل",
+  "shortName": "الاسم المختصر (اختياري)",
+  "phone": "رقم الهاتف",
+  "whatsapp": "واتساب",
+  "category": "الفئة",
+  "familyMembersCount": "عدد أفراد العائلة",
+  "address": "العنوان",
+  "notes": "ملاحظات (اختياري)",
+  "save": "حفظ",
+
+  "eventName": "اسم المناسبة",
+  "eventType": "نوع المناسبة",
+  "eventDate": "التاريخ",
+  "eventTime": "الوقت",
+  "eventLocation": "الموقع",
+  "eventColor": "لون المناسبة",
+  "coverImage": "صورة الغلاف",
+
+  "selectInvitees": "اختيار المدعوين",
+  "confirmSelection": "تأكيد الاختيار",
+  "expectedAttendance": "الحضور المتوقع",
+
+  "darkMode": "الوضع الليلي",
+  "language": "اللغة",
+  "accentColor": "لون التمييز",
+  "importExcel": "استيراد من Excel",
+  "exportExcel": "تصدير إلى Excel",
+  "exportPdf": "تصدير إلى PDF",
+  "security": "الأمان",
+  "about": "عن التطبيق",
+  "logout": "تسجيل الخروج"
+}

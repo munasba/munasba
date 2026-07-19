@@ -1,0 +1,53 @@
+{
+  "@@locale": "en",
+  "appTitle": "Dawakti",
+  "navHome": "Home",
+  "navPeople": "People",
+  "navEvents": "Events",
+  "navSettings": "Settings",
+
+  "home": "Home",
+  "peopleTitle": "People",
+  "categoriesTitle": "Categories",
+  "eventsTitle": "Events",
+  "tasksTitle": "Tasks",
+  "reportsTitle": "Reports",
+  "settingsTitle": "Settings",
+
+  "addPerson": "Add Person",
+  "addEvent": "Add Event",
+  "addCategory": "Add New Category",
+  "addTask": "Add Task",
+
+  "fullName": "Full Name",
+  "shortName": "Short Name (optional)",
+  "phone": "Phone Number",
+  "whatsapp": "WhatsApp",
+  "category": "Category",
+  "familyMembersCount": "Family Members Count",
+  "address": "Address",
+  "notes": "Notes (optional)",
+  "save": "Save",
+
+  "eventName": "Event Name",
+  "eventType": "Event Type",
+  "eventDate": "Date",
+  "eventTime": "Time",
+  "eventLocation": "Location",
+  "eventColor": "Event Color",
+  "coverImage": "Cover Image",
+
+  "selectInvitees": "Select Invitees",
+  "confirmSelection": "Confirm Selection",
+  "expectedAttendance": "Expected Attendance",
+
+  "darkMode": "Dark Mode",
+  "language": "Language",
+  "accentColor": "Accent Color",
+  "importExcel": "Import from Excel",
+  "exportExcel": "Export to Excel",
+  "exportPdf": "Export to PDF",
+  "security": "Security",
+  "about": "About",
+  "logout": "Logout"
+}

@@ -1,0 +1,92 @@
+name: Build Android APK
+
+# Builds a release APK on every push to main and on demand.
+#
+# Why this workflow explicitly regenerates the Gradle wrapper:
+# AI-generated Flutter projects frequently ship a `gradlew` / `gradlew.bat`
+# pair without the matching binary `gradle/wrapper/gradle-wrapper.jar`.
+# Without that jar, `./gradlew` fails immediately with:
+#   "Could not find or load main class org.gradle.wrapper.GradleWrapperMain"
+# Rather than trusting that a jar is already committed (or that
+# `flutter create` silently repairs it), this workflow installs a real
+# Gradle binary via the official setup-gradle action and uses it to write
+# a fresh, correct wrapper (jar + properties + scripts) for the exact
+# Gradle version this project targets, every single run.
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+  workflow_dispatch: {}
+
+env:
+  GRADLE_VERSION: "8.10.2"
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          cache: true
+
+      # Safe to run even though android/ already exists in this repo: it only
+      # fills in files that are missing and never overwrites lib/, pubspec.yaml,
+      # or files that already exist (like our hand-tuned settings.gradle.kts).
+      - name: Ensure native platform scaffolding is complete
+        run: flutter create --platforms=android .
+
+      # Installs a real, official Gradle binary on the runner (this step has
+      # full internet access, unlike some restricted/offline dev environments)
+      # and uses it to (re)generate a guaranteed-valid Gradle wrapper: this
+      # writes android/gradle/wrapper/gradle-wrapper.jar,
+      # gradle-wrapper.properties, gradlew and gradlew.bat from scratch so the
+      # "Could not find or load main class org.gradle.wrapper.GradleWrapperMain"
+      # failure can no longer happen.
+      - name: Install Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: ${{ env.GRADLE_VERSION }}
+
+      - name: Regenerate Gradle wrapper
+        working-directory: android
+        run: gradle wrapper --gradle-version ${{ env.GRADLE_VERSION }} --distribution-type all
+
+      - name: Make gradlew executable
+        working-directory: android
+        run: chmod +x gradlew
+
+      - name: Verify Gradle wrapper jar exists
+        working-directory: android
+        run: |
+          test -s gradle/wrapper/gradle-wrapper.jar || (echo "gradle-wrapper.jar missing/empty!" && exit 1)
+          ./gradlew --version
+
+      - name: Install Flutter dependencies
+        run: flutter pub get
+
+      - name: Generate localizations
+        run: flutter gen-l10n
+
+      - name: Analyze (non-blocking)
+        run: flutter analyze || true
+
+      - name: Build release APK
+        run: flutter build apk --release
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: dawakti-release-apk
+          path: build/app/outputs/flutter-apk/app-release.apk
