@@ -3,6 +3,7 @@ import 'package:timezone/data/latest_all.dart' as tz_data;
 import 'package:timezone/timezone.dart' as tz;
 
 import '../models/event.dart';
+import '../models/person.dart';
 
 /// Wraps flutter_local_notifications + timezone to schedule reminders before
 /// each event (1 day before, and 3 hours before — matching the plan doc's
@@ -100,5 +101,51 @@ class NotificationsService {
   /// number, since the plugin needs a stable int id (not a String uuid).
   static int _stableNotificationId(String eventId, int slot) {
     return (eventId.hashCode & 0x7fffffff) ~/ 10 * 10 + slot;
+  }
+
+  static const _birthdayDetails = NotificationDetails(
+    android: AndroidNotificationDetails(
+      'dawakti_birthdays',
+      'تذكيرات أعياد الميلاد',
+      channelDescription: 'تنبيه صباح يوم عيد ميلاد كل شخص أضفت تاريخ ميلاده',
+      importance: Importance.high,
+      priority: Priority.high,
+    ),
+    iOS: DarwinNotificationDetails(),
+  );
+
+  /// Schedules a yearly 9 AM reminder on [person]'s birthday. Uses
+  /// [DateTimeComponents.dateAndTime] so the plugin itself repeats it every
+  /// year — no need to re-schedule after it fires once.
+  static Future<void> scheduleBirthdayReminder(Person person) async {
+    if (person.birthday == null) return;
+    await cancelBirthdayReminder(person.id);
+
+    final b = person.birthday!;
+    var next = DateTime(DateTime.now().year, b.month, b.day, 9, 0);
+    if (next.isBefore(DateTime.now())) {
+      next = DateTime(next.year + 1, b.month, b.day, 9, 0);
+    }
+
+    await _plugin.zonedSchedule(
+      _birthdayNotificationId(person.id),
+      'عيد ميلاد سعيد 🎂',
+      'اليوم عيد ميلاد ${person.fullName} — لا تنسَ تهنئته!',
+      tz.TZDateTime.from(next, tz.local),
+      _birthdayDetails,
+      androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+      uiLocalNotificationDateInterpretation: UILocalNotificationDateInterpretation.absoluteTime,
+      matchDateTimeComponents: DateTimeComponents.dateAndTime,
+    );
+  }
+
+  static Future<void> cancelBirthdayReminder(String personId) async {
+    await _plugin.cancel(_birthdayNotificationId(personId));
+  }
+
+  /// A separate id range from [_stableNotificationId] (events) so a
+  /// person's reminder id can never collide with an event reminder's id.
+  static int _birthdayNotificationId(String personId) {
+    return 1000000 + (personId.hashCode & 0x0fffffff) % 900000;
   }
 }
