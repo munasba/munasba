@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
@@ -7,6 +8,7 @@ import 'package:image_picker/image_picker.dart';
 import '../../core/theme/app_colors.dart';
 import '../../data/models/category.dart';
 import '../../data/models/person.dart';
+import '../../data/repositories/people_repository.dart';
 import '../../providers/providers.dart';
 import '../../shared/widgets/glass_card.dart';
 import '../../shared/widgets/stepper_control.dart';
@@ -31,6 +33,7 @@ class _PersonFormScreenState extends ConsumerState<PersonFormScreen> {
   String? _categoryId;
   int _familyMembersCount = 1;
   String? _photoPath;
+  DateTime? _birthday;
   bool _loaded = false;
   Person? _editing;
 
@@ -54,6 +57,7 @@ class _PersonFormScreenState extends ConsumerState<PersonFormScreen> {
             _categoryId = person.categoryId;
             _familyMembersCount = person.familyMembersCount;
             _photoPath = person.photoPath;
+            _birthday = person.birthday;
             _loaded = true;
           });
         }
@@ -87,14 +91,51 @@ class _PersonFormScreenState extends ConsumerState<PersonFormScreen> {
       notes: _notesController.text.trim().isEmpty ? null : _notesController.text.trim(),
       photoPath: _photoPath,
       isFavorite: _editing?.isFavorite ?? false,
+      birthday: _birthday,
       createdAt: _editing?.createdAt ?? DateTime.now(),
     );
 
     if (isEdit && _editing != null) {
       await ref.read(peopleProvider.notifier).updatePerson(draft);
-    } else {
-      await ref.read(peopleProvider.notifier).add(draft);
+      if (mounted) context.pop();
+      return;
     }
+
+    // كشف تكرار مبكر: إذا رقم الهاتف يطابق شخصًا موجودًا مسبقًا، نسأل قبل ما
+    // ننشئ سجل مكرر يحتاج دمج لاحقًا من شاشة الأشخاص.
+    if (draft.phone != null && draft.phone!.isNotEmpty) {
+      final existingPeople = ref.read(peopleProvider).valueOrNull ?? [];
+      final normalized = PeopleRepository.normalizePhone(draft.phone);
+      Person? match;
+      for (final p in existingPeople) {
+        if (PeopleRepository.normalizePhone(p.phone) == normalized) {
+          match = p;
+          break;
+        }
+      }
+      if (match != null && mounted) {
+        final choice = await showDialog<String>(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            title: const Text('يوجد شخص بنفس الرقم'),
+            content: Text('"${match!.fullName}" مسجّل بنفس رقم الهاتف. هل تريد المتابعة وإضافته كشخص جديد على أي حال، أم فتح ملفه الموجود؟'),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(ctx, 'cancel'), child: const Text('إلغاء')),
+              TextButton(onPressed: () => Navigator.pop(ctx, 'open'), child: const Text('فتح الملف الموجود')),
+              TextButton(onPressed: () => Navigator.pop(ctx, 'continue'), child: const Text('إضافة على أي حال')),
+            ],
+          ),
+        );
+        if (choice == 'cancel' || choice == null) return;
+        if (choice == 'open') {
+          if (mounted) context.pushReplacement('/people/${match.id}/edit');
+          return;
+        }
+        // choice == 'continue' يكمل الحفظ العادي بالأسفل
+      }
+    }
+
+    await ref.read(peopleProvider.notifier).add(draft);
     if (mounted) context.pop();
   }
 
@@ -181,15 +222,6 @@ class _PersonFormScreenState extends ConsumerState<PersonFormScreen> {
                 style: TextStyle(fontSize: 11.5, color: Colors.grey.shade400, fontWeight: FontWeight.normal)),
           ],
         ),
-        actions: [
-          Padding(
-            padding: const EdgeInsets.only(left: 12),
-            child: CircleAvatar(
-              backgroundColor: Theme.of(context).colorScheme.primary.withOpacity(0.18),
-              child: Icon(Icons.person_add_alt_1, color: Theme.of(context).colorScheme.primary, size: 20),
-            ),
-          ),
-        ],
       ),
       body: ListView(
         padding: const EdgeInsets.all(16),
@@ -236,7 +268,7 @@ class _PersonFormScreenState extends ConsumerState<PersonFormScreen> {
                 ),
               ],
             ),
-          ),
+          ).animate().fadeIn(duration: 320.ms).slideY(begin: -0.05, end: 0, curve: Curves.easeOutCubic),
           const SizedBox(height: 14),
           _fieldCard(
             icon: Icons.person_outline,
@@ -316,6 +348,40 @@ class _PersonFormScreenState extends ConsumerState<PersonFormScreen> {
           ),
           const SizedBox(height: 10),
           _fieldCard(
+            icon: Icons.cake_outlined,
+            iconColor: Colors.orangeAccent,
+            label: 'تاريخ الميلاد (اختياري)',
+            onTap: () async {
+              final picked = await showDatePicker(
+                context: context,
+                initialDate: _birthday ?? DateTime(DateTime.now().year - 20),
+                firstDate: DateTime(1930),
+                lastDate: DateTime.now(),
+              );
+              if (picked != null) setState(() => _birthday = picked);
+            },
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    _birthday == null
+                        ? 'اختر تاريخ الميلاد'
+                        : '${_birthday!.year}-${_birthday!.month.toString().padLeft(2, '0')}-${_birthday!.day.toString().padLeft(2, '0')}',
+                    style: TextStyle(color: _birthday == null ? Colors.grey.shade500 : null),
+                  ),
+                ),
+                if (_birthday != null)
+                  GestureDetector(
+                    onTap: () => setState(() => _birthday = null),
+                    child: Icon(Icons.close, size: 16, color: Colors.grey.shade500),
+                  )
+                else
+                  Icon(Icons.calendar_today_outlined, size: 16, color: Colors.grey.shade500),
+              ],
+            ),
+          ),
+          const SizedBox(height: 10),
+          _fieldCard(
             icon: Icons.location_on_outlined,
             iconColor: Colors.pinkAccent,
             label: 'العنوان',
@@ -344,7 +410,7 @@ class _PersonFormScreenState extends ConsumerState<PersonFormScreen> {
               label: const Text('حفظ الشخص', style: TextStyle(fontWeight: FontWeight.bold)),
               style: ElevatedButton.styleFrom(shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(100))),
             ),
-          ),
+          ).animate().fadeIn(delay: 250.ms, duration: 350.ms).scaleXY(begin: 0.92, end: 1, curve: Curves.easeOutBack),
         ],
       ),
     );

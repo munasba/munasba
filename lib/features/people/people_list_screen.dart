@@ -1,10 +1,13 @@
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/theme/app_colors.dart';
+import '../../data/models/person.dart';
+import '../../data/repositories/people_repository.dart';
 import '../../data/services/excel_service.dart';
 import '../../providers/providers.dart';
 import '../../shared/widgets/empty_state.dart';
@@ -37,13 +40,22 @@ class PeopleListScreen extends ConsumerWidget {
               await _importFromExcel(context, ref);
             } else if (v == 'categories') {
               context.push('/categories');
+            } else if (v == 'merge') {
+              _showMergeDuplicatesSheet(context, ref, allPeople);
             }
           },
-          itemBuilder: (context) => const [
-            PopupMenuItem(value: 'export', child: Text('تصدير إلى Excel')),
-            PopupMenuItem(value: 'import', child: Text('استيراد من Excel')),
-            PopupMenuItem(value: 'categories', child: Text('إدارة الفئات')),
-          ],
+          itemBuilder: (context) {
+            final duplicateGroups = PeopleRepository.findDuplicateGroups(peopleAsync.valueOrNull ?? []);
+            return [
+              const PopupMenuItem(value: 'export', child: Text('تصدير إلى Excel')),
+              const PopupMenuItem(value: 'import', child: Text('استيراد من Excel')),
+              const PopupMenuItem(value: 'categories', child: Text('إدارة الفئات')),
+              PopupMenuItem(
+                value: 'merge',
+                child: Text(duplicateGroups.isEmpty ? 'دمج الأشخاص المكررين' : 'دمج الأشخاص المكررين (${duplicateGroups.length})'),
+              ),
+            ];
+          },
         ),
         centerTitle: true,
         title: Column(
@@ -152,12 +164,17 @@ class PeopleListScreen extends ConsumerWidget {
                     _miniStat('${allPeople.length}', 'إجمالي الأشخاص', Icons.people_alt_rounded, AppColors.primary),
                   ],
                 ),
-              ),
+              ).animate().fadeIn(duration: 350.ms).slideY(begin: 0.08, end: 0, curve: Curves.easeOutCubic),
+              const SizedBox(height: 12),
+              _UpcomingBirthdaysRow(people: allPeople),
               const SizedBox(height: 12),
               if (people.isEmpty)
                 const EmptyState(icon: Icons.people_outline, message: 'لا يوجد أشخاص مطابقون')
               else
-                ...people.map((p) => Padding(
+                ...people.asMap().entries.map((entry) {
+                  final i = entry.key;
+                  final p = entry.value;
+                  return Padding(
                       padding: const EdgeInsets.only(bottom: 10),
                       child: PersonRow(
                         person: p,
@@ -202,8 +219,9 @@ class PeopleListScreen extends ConsumerWidget {
                             ),
                           ],
                         ),
-                      ),
-                    )),
+                      ).animate().fadeIn(delay: (i * 35).clamp(0, 350).ms, duration: 280.ms).slideX(begin: 0.06, end: 0, curve: Curves.easeOutCubic),
+                    );
+                }),
             ],
           );
         },
@@ -275,6 +293,72 @@ class PeopleListScreen extends ConsumerWidget {
     );
   }
 
+  void _showMergeDuplicatesSheet(BuildContext context, WidgetRef ref, List<Person> allPeople) {
+    final groups = PeopleRepository.findDuplicateGroups(allPeople);
+    if (groups.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('لا يوجد أشخاص مكررون حاليًا 👍')));
+      return;
+    }
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const Text('أشخاص بنفس رقم الهاتف', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 4),
+              Text('اختر السجل الذي تريد الاحتفاظ به بكل مجموعة؛ الباقي يُدمج فيه وتُنقل مناسباته له.',
+                  style: TextStyle(fontSize: 12, color: Colors.grey.shade400)),
+              const SizedBox(height: 12),
+              ConstrainedBox(
+                constraints: const BoxConstraints(maxHeight: 420),
+                child: ListView.separated(
+                  shrinkWrap: true,
+                  itemCount: groups.length,
+                  separatorBuilder: (_, __) => const Divider(height: 24),
+                  itemBuilder: (itemContext, gi) {
+                    final group = groups[gi];
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(group.first.phone ?? '', style: TextStyle(fontSize: 12, color: Colors.grey.shade500)),
+                        const SizedBox(height: 6),
+                        ...group.map((p) => ListTile(
+                              contentPadding: EdgeInsets.zero,
+                              title: Text(p.fullName),
+                              subtitle: Text('العائلة: ${p.familyMembersCount} أفراد'),
+                              trailing: ElevatedButton(
+                                onPressed: () async {
+                                  final others = group.where((x) => x.id != p.id).toList();
+                                  for (final other in others) {
+                                    await ref.read(peopleProvider.notifier).mergeInto(keepId: p.id, removeId: other.id);
+                                  }
+                                  if (context.mounted) Navigator.pop(ctx);
+                                  if (context.mounted) {
+                                    ScaffoldMessenger.of(context)
+                                        .showSnackBar(SnackBar(content: Text('تم الدمج في "${p.fullName}"')));
+                                  }
+                                },
+                                child: const Text('احتفظ بهذا'),
+                              ),
+                            )),
+                      ],
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _miniStat(String value, String label, IconData icon, Color color) => Column(
         children: [
           Text(label, style: TextStyle(fontSize: 10.5, color: Colors.grey.shade400)),
@@ -289,4 +373,73 @@ class PeopleListScreen extends ConsumerWidget {
           ),
         ],
       );
+}
+
+/// Shows anyone whose birthday falls within the next 45 days, nearest first.
+/// A reminder is already auto-scheduled (via [PeopleNotifier]) the moment a
+/// birthday is saved on the add/edit-person screen — this row is just the
+/// at-a-glance surface for it, so nothing here needs its own toggle.
+class _UpcomingBirthdaysRow extends StatelessWidget {
+  final List<Person> people;
+  const _UpcomingBirthdaysRow({required this.people});
+
+  int _daysUntilNextBirthday(DateTime birthday) {
+    final now = DateTime.now();
+    var next = DateTime(now.year, birthday.month, birthday.day);
+    final today = DateTime(now.year, now.month, now.day);
+    if (next.isBefore(today)) next = DateTime(now.year + 1, birthday.month, birthday.day);
+    return next.difference(today).inDays;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final withBirthday = people.where((p) => p.birthday != null).toList()
+      ..sort((a, b) => _daysUntilNextBirthday(a.birthday!).compareTo(_daysUntilNextBirthday(b.birthday!)));
+    final upcoming = withBirthday.where((p) => _daysUntilNextBirthday(p.birthday!) <= 45).toList();
+
+    if (upcoming.isEmpty) return const SizedBox.shrink();
+
+    return SizedBox(
+      height: 74,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        itemCount: upcoming.length,
+        separatorBuilder: (_, __) => const SizedBox(width: 8),
+        itemBuilder: (context, i) {
+          final p = upcoming[i];
+          final days = _daysUntilNextBirthday(p.birthday!);
+          final label = days == 0 ? '🎉 اليوم!' : 'بعد $days يوم';
+          return GestureDetector(
+            onTap: () => context.push('/people/${p.id}'),
+            child: Container(
+              width: 120,
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+              decoration: BoxDecoration(
+                color: days == 0 ? Colors.orange.withOpacity(0.18) : Colors.white.withOpacity(0.05),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: days == 0 ? Colors.orange.withOpacity(0.5) : Colors.white.withOpacity(0.08)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Row(
+                    children: [
+                      const Icon(Icons.cake_outlined, size: 14, color: Colors.orangeAccent),
+                      const SizedBox(width: 4),
+                      Expanded(
+                        child: Text(p.fullName, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  Text(label, style: TextStyle(fontSize: 11, color: Colors.grey.shade400)),
+                ],
+              ),
+            ),
+          ).animate().fadeIn(delay: (i * 40).ms, duration: 260.ms).slideX(begin: 0.08, end: 0);
+        },
+      ),
+    );
+  }
 }
