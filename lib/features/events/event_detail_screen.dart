@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -187,7 +188,7 @@ class _OverviewTabState extends ConsumerState<_OverviewTab> {
               ),
             ),
           ],
-        ),
+        ).animate().fadeIn(duration: 300.ms).slideY(begin: -0.06, end: 0, curve: Curves.easeOutCubic),
         const SizedBox(height: 12),
         GridView.count(
           crossAxisCount: 3,
@@ -197,9 +198,18 @@ class _OverviewTabState extends ConsumerState<_OverviewTab> {
           crossAxisSpacing: 10,
           childAspectRatio: 0.95,
           children: [
-            StatCard(value: '$confirmedForMetric', label: '✅ مؤكدون', icon: Icons.check_circle, color: AppColors.success),
-            StatCard(value: '$remaining', label: '⏳ المتبقون', icon: Icons.hourglass_bottom, color: AppColors.warning),
-            StatCard(value: '$percent%', label: '📈 نسبة الإنجاز', icon: Icons.percent, color: AppColors.secondary),
+            StatCard(value: '$confirmedForMetric', label: '✅ مؤكدون', icon: Icons.check_circle, color: AppColors.success)
+                .animate()
+                .fadeIn(delay: 60.ms, duration: 320.ms)
+                .scaleXY(begin: 0.85, end: 1, curve: Curves.easeOutBack),
+            StatCard(value: '$remaining', label: '⏳ المتبقون', icon: Icons.hourglass_bottom, color: AppColors.warning)
+                .animate()
+                .fadeIn(delay: 120.ms, duration: 320.ms)
+                .scaleXY(begin: 0.85, end: 1, curve: Curves.easeOutBack),
+            StatCard(value: '$percent%', label: '📈 نسبة الإنجاز', icon: Icons.percent, color: AppColors.secondary)
+                .animate()
+                .fadeIn(delay: 180.ms, duration: 320.ms)
+                .scaleXY(begin: 0.85, end: 1, curve: Curves.easeOutBack),
           ],
         ),
         const SizedBox(height: 16),
@@ -217,7 +227,7 @@ class _OverviewTabState extends ConsumerState<_OverviewTab> {
               _summaryRow('📈 نسبة الإنجاز', '${stats.percent}%'),
             ],
           ),
-        ),
+        ).animate().fadeIn(delay: 220.ms, duration: 350.ms).slideY(begin: 0.06, end: 0, curve: Curves.easeOutCubic),
         const SizedBox(height: 16),
         if (event != null)
           Row(
@@ -306,6 +316,26 @@ class _InviteesTabState extends ConsumerState<_InviteesTab> {
     await _showCallOutcomeSheet(inv);
   }
 
+  /// Applies [status] to [inv] and shows a snackbar with a "تراجع" action
+  /// that restores the previous status — so a wrong tap never needs a
+  /// second trip through the status buttons to fix.
+  Future<void> _applyStatus(Invitee inv, RsvpStatus status) async {
+    final previous = inv.rsvpStatus;
+    await ref.read(inviteesProvider(widget.eventId).notifier).updateStatus(inv.id, status);
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('تم تحديث الحالة إلى "${status.label}"'),
+        action: previous == status
+            ? null
+            : SnackBarAction(
+                label: 'تراجع',
+                onPressed: () => ref.read(inviteesProvider(widget.eventId).notifier).updateStatus(inv.id, previous),
+              ),
+      ),
+    );
+  }
+
   Future<void> _showCallOutcomeSheet(Invitee inv) async {
     final status = await showModalBottomSheet<RsvpStatus>(
       context: context,
@@ -343,10 +373,7 @@ class _InviteesTabState extends ConsumerState<_InviteesTab> {
       ),
     );
     if (status != null && mounted) {
-      await ref.read(inviteesProvider(widget.eventId).notifier).updateStatus(inv.id, status);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('تم تحديث الحالة إلى "${status.label}"')));
-      }
+      await _applyStatus(inv, status);
     }
   }
 
@@ -455,16 +482,14 @@ class _InviteesTabState extends ConsumerState<_InviteesTab> {
                                   children: RsvpStatus.values.map((s) {
                                     final active = inv.rsvpStatus == s;
                                     return GestureDetector(
-                                      onTap: () async {
-                                        await ref.read(inviteesProvider(widget.eventId).notifier).updateStatus(inv.id, s);
-                                        if (context.mounted) {
-                                          ScaffoldMessenger.of(context)
-                                              .showSnackBar(SnackBar(content: Text('تم تحديث الحالة إلى "${s.label}"')));
-                                        }
-                                      },
+                                      onTap: () => _applyStatus(inv, s),
                                       child: Opacity(
                                         opacity: active ? 1 : 0.4,
-                                        child: StatusChip(label: s.label, color: AppColors.rsvpColor(s.key)),
+                                        child: StatusChip(label: s.label, color: AppColors.rsvpColor(s.key))
+                                            .animate(target: active ? 1 : 0)
+                                            .scaleXY(begin: 1, end: 1.12, curve: Curves.easeOutBack, duration: 220.ms)
+                                            .then()
+                                            .scaleXY(begin: 1.12, end: 1, duration: 120.ms),
                                       ),
                                     );
                                   }).toList(),
@@ -492,7 +517,7 @@ class _InviteesTabState extends ConsumerState<_InviteesTab> {
                               ),
                           ],
                         ),
-                      ),
+                      ).animate().fadeIn(delay: (i * 35).clamp(0, 350).ms, duration: 260.ms).slideX(begin: 0.05, end: 0, curve: Curves.easeOutCubic),
                     );
                   },
                 ),

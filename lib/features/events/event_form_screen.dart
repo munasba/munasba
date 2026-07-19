@@ -5,6 +5,7 @@ import 'package:image_picker/image_picker.dart';
 
 import '../../core/theme/app_colors.dart';
 import '../../data/models/event.dart';
+import '../../data/models/task.dart';
 import '../../providers/providers.dart';
 
 class EventFormScreen extends ConsumerStatefulWidget {
@@ -109,9 +110,30 @@ class _EventFormScreenState extends ConsumerState<EventFormScreen> {
       if (mounted) context.pop();
     } else {
       final created = await ref.read(eventsProvider.notifier).add(draft);
+      for (final title in _defaultTasksFor(_type)) {
+        await ref.read(tasksProvider.notifier).add(TaskItem(
+              id: '',
+              eventId: created.id,
+              title: title,
+              createdAt: DateTime.now(),
+            ));
+      }
       if (mounted) context.pushReplacement('/events/${created.id}/invitees');
     }
   }
+
+  /// A short starter checklist per event type, so a new event doesn't open
+  /// on an empty المهام tab. Purely a convenience default — every task can
+  /// be edited, reordered, or deleted right away.
+  static List<String> _defaultTasksFor(String type) => switch (type) {
+        'wedding' => const ['تأكيد حجز القاعة', 'حجز الطعام والضيافة', 'التصوير والفيديو', 'دعوات وبطاقات', 'تنسيق الزهور والديكور'],
+        'birthday' => const ['حجز الكيك', 'الديكور والبالونات', 'دعوة الضيوف', 'تحضير الهدايا'],
+        'graduation' => const ['حجز قاعة الحفل', 'تنسيق التصوير', 'دعوة الأهل والأصدقاء'],
+        'condolence' => const ['ترتيب مكان العزاء', 'تجهيز الضيافة', 'إعلام الأقارب'],
+        'engagement' => const ['تجهيز الشبكة والهدايا', 'حجز القاعة', 'دعوة العائلتين'],
+        'meeting' => const ['تحضير جدول الأعمال', 'حجز المكان', 'إشعار الحضور'],
+        _ => const [],
+      };
 
   @override
   Widget build(BuildContext context) {
